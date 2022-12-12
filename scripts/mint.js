@@ -4,7 +4,7 @@ require('dotenv').config()
 // Import everything we'll need
 const premintAbi = require('../helpers/abis/premint.json')
 const AlchemyWeb3 = require('@alch/alchemy-web3')
-const { ALCHEMY_URI, ALCHEMY_API_KEY, WALLET_1_ADDRESS, WALLET_1_PKEY, WALLET_2_ADDRESS, WALLET_2_PKEY } = process.env
+const { ALCHEMY_URI, ALCHEMY_API_KEY, WALLET_1_ADDRESS, WALLET_1_PKEY } = process.env
 
 // Setup Alchemy
 const web3 = AlchemyWeb3.createAlchemyWeb3(`${ALCHEMY_URI}/${ALCHEMY_API_KEY}`)
@@ -102,22 +102,52 @@ const waitForNextBlock = (currentBlockNumber) => {
 // Fire off our mint function!
 //
 
-const purchaseWithWallet = ({ wallet, tokenAddress, data, amount, maxPriorityFee, test: isTest }) => {
+const purchaseWithWallet = ({ wallet, amount, maxPriorityFee, test: isTest }) => {
   return new Promise(async (resolve, reject) => {
     let contract
 
     try {
+      //
+      // NOTE: THIS IS WHERE YOU WOULD CHANGE THE INFO ON A PER-MINT BASIS
+      // The "data" and "tokenAddress" will change, of course, since not every "mint" function is the same
+      //
+
+      // This is the data the Premint "premint" function requires
+
+      const tokenAddress = '0xc178994cb9b66307cd62db8b411759dd36d9c2ee'
+      const data = {
+        allowance: {
+          listId: '0x0000000000000000000000000000000000000000000000000000000000000002',
+          account: '0x2718aa38cb0c94ba5d22a920b97942f359381683',
+          target: '0xc178994cb9b66307cd62db8b411759dd36d9c2ee',
+          startsAt: 1670439600,
+          endsAt: 1670443200,
+          unitPrice: '300000000000000000',
+          amount: 0,
+        },
+        allowanceSignature:
+          '0xb3f1bf7f8a871450b80f6af1c9b303ac132c38013d229c17be939d42a9d2602c7b9136aca92b53c472cd25c55c0cec597fc8d6db1c4b0224800c350371e749fb1c',
+        validator: '0xEf647e713f8A72CE8Ae0C7B8876aD9c721D67E7E',
+        validatorAuthorizationSignature:
+          '0xaa335d6a673700f9bed1b8d07f4b1f15cb11567dbc89a9b8bac474f8f83eda0d4c791850d5597501b8af72178b1ce8bbce50d4738dc05acfd6056b96881412961c',
+      }
+      const valueToSend = data.allowance.unitPrice
+
       contract = new web3.eth.Contract(premintAbi, tokenAddress)
 
       // Create the transaction data so we can send it
       const transactionData = contract.methods.premint(data, amount).encodeABI()
+
+      //
+      // End of our edited area :)
+      //
 
       // Get our estimated gas price for this specific transaction
       const estimatedTransactionGas = await web3.eth.estimateGas({
         to: tokenAddress,
         from: wallet.id,
         data: transactionData,
-        value: data.allowance.unitPrice,
+        value: valueToSend,
       })
 
       // Now send our actual transaction to buy it!
@@ -148,15 +178,15 @@ const purchaseWithWallet = ({ wallet, tokenAddress, data, amount, maxPriorityFee
         // If we're a test, end here!
         if (isTest) {
           console.log('Test complete!', { txData })
-          resolve({ wallet })
+          resolve()
         } else {
-          await sendTx(web3, wallet, txData)
+          await sendTx(wallet, txData)
           console.log('Successfully purchased item!')
-          resolve({ wallet })
+          resolve()
         }
       } catch (err) {
         console.log('createAndPurchaseViaWallet SendTX failed:', { err })
-        reject({ err, wallet })
+        reject({ err })
       }
     } catch (err) {
       const data = err?.data
@@ -174,13 +204,13 @@ const purchaseWithWallet = ({ wallet, tokenAddress, data, amount, maxPriorityFee
       }
 
       console.log('purchaseWithWallet error', { message: customError || err?.message })
-      reject({ err: { message: customError || err?.message }, wallet })
+      reject({ err: { message: customError || err?.message } })
     }
   })
 }
 
 const mint = async (job) => {
-  const { maxPriorityFee, data, amount, disableWait, test } = job.data
+  const { maxPriorityFee, amount, disableWait, test } = job.data
 
   // Fetch all of the wallets we want to use so we can submit for all of them
   const wallets = fetchWallets()
@@ -205,8 +235,6 @@ const mint = async (job) => {
         return purchaseWithWallet({
           wallet,
           maxPriorityFee,
-          tokenAddress: data.allowance.target,
-          data,
           amount,
           test,
         })
