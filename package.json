@@ -1,0 +1,23 @@
+{
+  "name": "mvp-bot-example",
+  "version": "1.0.0",
+  "description": "An example of how we'd create a bot, made for the MVP community",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "worker": "nodemon workers/index.js"
+  },
+  "author": "Cryptoro311",
+  "license": "ISC",
+  "dependencies": {
+    "@alch/alchemy-web3": "^1.4.7",
+    "axios": "^1.2.1",
+    "bull": "^4.10.2",
+    "dotenv": "^16.0.3",
+    "lodash": "^4.17.21",
+    "nodemon": "^2.0.20",
+    "prettier": "^2.8.1",
+    "qs": "^6.11.0",
+    "throng": "^5.0.0"
+  }
+}
